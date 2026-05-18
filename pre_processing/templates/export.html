@@ -184,8 +184,8 @@
         <div class="step-title">Set the redirect URI</div>
         <div class="step-desc">
           In the <strong>Redirect URIs</strong> field, add the callback URL for the site you're using.
-          For local testing it's <code id="guide-redirect-local">http://127.0.0.1:8765/callback.html</code>.
-          For a hosted site it's <code id="guide-redirect-hosted"></code>.
+          The redirect URI is <code>https://my-wrapped.torkil95.workers.dev/callback.html</code>.
+          If testing locally it's <code id="guide-redirect-local">http://127.0.0.1:8765/callback.html</code>.
           Click <strong>Save</strong>.
         </div>
         <div class="callout">
@@ -257,10 +257,7 @@
 
 </div>
 
-<script>
-document.getElementById('guide-redirect-hosted').textContent =
-  window.location.origin + '/callback.html';
-</script>
+
 <script src="spotify.js"></script>
 </body>
 </html>
