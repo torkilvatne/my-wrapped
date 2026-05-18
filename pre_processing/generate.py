@@ -9,7 +9,7 @@ import argparse
 from collections import defaultdict
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
-TEMPLATE_FILES = ["index.html", "yearly.html", "songs.html", "stats.html", "callback.html", "app.js", "spotify.js", "export.html", "generate.py", "_headers"]
+TEMPLATE_FILES = ["index.html", "yearly.html", "songs.html", "stats.html", "callback.html", "app.js", "spotify.js", "export.html", "changelog.html", "generate.py", "_headers"]
 
 REASON_GROUPS = {
     "playbtn":  "Play button",
@@ -240,21 +240,24 @@ def process(folder, output_dir, client_id=""):
         entries  = by_year[year]
         total_ms = sum(e["ms_played"] for e in entries)
 
-        song_counts   = defaultdict(int)
-        song_ms       = defaultdict(int)
-        song_album    = {}
-        artist_counts = defaultdict(int)
-        artist_ms     = defaultdict(int)
-        monthly       = defaultdict(int)
+        song_counts        = defaultdict(int)
+        song_ms            = defaultdict(int)
+        song_album         = {}
+        artist_counts      = defaultdict(int)
+        artist_ms          = defaultdict(int)
+        monthly            = defaultdict(int)
+        monthly_song_counts= defaultdict(lambda: defaultdict(int))
 
         for e in entries:
             key = (e["master_metadata_track_name"], e["master_metadata_album_artist_name"])
+            month = int(e["ts"][5:7])
             song_counts[key]   += 1
             song_ms[key]       += e["ms_played"]
             song_album[key]     = e.get("master_metadata_album_album_name") or ""
             artist_counts[e["master_metadata_album_artist_name"]] += 1
             artist_ms[e["master_metadata_album_artist_name"]]     += e["ms_played"]
-            monthly[int(e["ts"][5:7])] += e["ms_played"]
+            monthly[month]     += e["ms_played"]
+            monthly_song_counts[month][key] += 1
 
         skipped = sum(1 for e in entries if e.get("skipped"))
         first   = entries[0]
@@ -277,6 +280,13 @@ def process(folder, output_dir, client_id=""):
                 for a, v in sorted(artist_counts.items(), key=lambda x: -x[1])[:50]
             ],
             "monthly_hours": [round(monthly.get(m, 0) / 3_600_000, 2) for m in range(1, 13)],
+            "monthly_songs": {
+                str(m): [
+                    {"track": k[0], "artist": k[1], "plays": v}
+                    for k, v in sorted(monthly_song_counts[m].items(), key=lambda x: -x[1])[:10]
+                ]
+                for m in range(1, 13) if monthly_song_counts[m]
+            },
             "first_song": {
                 "track":  first["master_metadata_track_name"],
                 "artist": first["master_metadata_album_artist_name"],

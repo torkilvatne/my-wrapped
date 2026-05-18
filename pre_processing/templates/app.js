@@ -171,7 +171,7 @@ window.getSpotifyData = async function () {
     .app-btn-close:hover { border-color: #fff; color: #fff; }
 
     .app-gear-btn {
-      margin-left: auto; background: none; border: none; cursor: pointer;
+      background: none; border: none; cursor: pointer;
       color: #b3b3b3; font-size: 18px; padding: 4px 8px; border-radius: 6px;
       transition: color 0.15s; line-height: 1; font-family: inherit;
     }

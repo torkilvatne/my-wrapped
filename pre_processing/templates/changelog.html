@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Wrapped — Changelog</title>
+<script src="data/spotify_data.js" onerror=""></script>
+<script src="app.js"></script>
+<style>
+  :root {
+    --bg: #121212; --surface: #1e1e1e; --card: #282828;
+    --green: #1DB954; --text: #ffffff; --muted: #b3b3b3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Circular', 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; }
+
+  nav { background: #000; padding: 16px 32px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #333; }
+  .logo { font-size: 20px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--text); }
+
+  .hero { padding: 48px 32px 32px; background: linear-gradient(180deg, #1a2840 0%, var(--bg) 100%); }
+  .hero h1 { font-size: clamp(32px,5vw,56px); font-weight: 900; letter-spacing: -1.5px; }
+  .hero h1 span { color: var(--green); }
+  .hero p { color: var(--muted); margin-top: 10px; font-size: 15px; max-width: 600px; line-height: 1.6; }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 0 32px 80px; }
+
+  .release { margin-top: 48px; }
+  .release-header {
+    display: flex; align-items: baseline; gap: 16px;
+    padding-bottom: 12px; border-bottom: 2px solid #222; margin-bottom: 20px;
+  }
+  .release-version { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+  .release-date { font-size: 13px; color: var(--muted); }
+  .release-tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    padding: 3px 8px; border-radius: 6px; background: #1DB95422; color: var(--green);
+    border: 1px solid #1DB95444;
+  }
+
+  .change-group { margin-bottom: 18px; }
+  .change-group-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--green); font-weight: 700; margin-bottom: 10px;
+  }
+  .change-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .change-list li {
+    display: flex; gap: 12px; align-items: flex-start;
+    font-size: 14px; color: var(--muted); line-height: 1.6;
+  }
+  .change-list li::before {
+    content: '—'; color: #444; flex-shrink: 0; margin-top: 1px;
+  }
+  .change-list li strong { color: var(--text); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Wrapped</span>
+  <a href="index.html">Overview</a>
+  <a href="yearly.html">By Year</a>
+  <a href="songs.html">Song Counts</a>
+  <a href="stats.html">Insights</a>
+  <a href="export.html">Guide</a>
+  <a href="changelog.html" class="active" style="margin-left:auto">Changelog</a>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <h1>What's <span>New</span></h1>
+    <p>A history of updates and improvements to the app.</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="release">
+    <div class="release-header">
+      <span class="release-version">May 2026</span>
+      <span class="release-tag">Latest</span>
+      <span class="release-date">2026-05-18</span>
+    </div>
+    <div class="change-group">
+      <div class="change-group-title">New</div>
+      <ul class="change-list">
+        <li><strong>Top Songs by Month</strong> — By Year page now shows a month picker below the year selector with top 10 songs for each month and an All Year default view, plus export to Spotify.</li>
+        <li><strong>Changelog page</strong> — this page.</li>
+      </ul>
+    </div>
+    <div class="change-group">
+      <div class="change-group-title">Improved</div>
+      <ul class="change-list">
+        <li><strong>Export always sends all 50 songs</strong> — Top Songs export on the By Year page no longer depends on whether the list is expanded or collapsed.</li>
+      </ul>
+    </div>
+    <div class="change-group">
+      <div class="change-group-title">Security</div>
+      <ul class="change-list">
+        <li><strong>OAuth CSRF protection</strong> — PKCE flow now includes a <code>state</code> parameter; callback rejects mismatched values.</li>
+        <li><strong>Open redirect fix</strong> — OAuth return URL is validated to be same-origin before redirecting.</li>
+        <li><strong>Subresource Integrity</strong> — Chart.js CDN script now includes an <code>integrity</code> hash to guard against supply-chain tampering.</li>
+        <li><strong>Content Security Policy</strong> — Cloudflare Pages <code>_headers</code> file adds CSP, <code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, and <code>Referrer-Policy</code>.</li>
+        <li><strong>Upload validation</strong> — Uploaded JSON is checked for expected structure before being stored.</li>
+        <li><strong>Rate limit safety</strong> — Spotify API 429 retry is now iterative with a 30-second cap and 3-retry limit.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="release">
+    <div class="release-header">
+      <span class="release-version">May 2026 — Hosted release</span>
+      <span class="release-date">2026-05-15</span>
+    </div>
+    <div class="change-group">
+      <div class="change-group-title">New</div>
+      <ul class="change-list">
+        <li><strong>Cloudflare Pages hosting</strong> — the app is now publicly available. Upload <code>spotify_data.json</code> in the browser; no local server needed.</li>
+        <li><strong>IndexedDB persistence</strong> — uploaded data persists across page navigations and browser restarts without re-uploading.</li>
+        <li><strong>Browser-based settings</strong> — Spotify Client ID is entered in the ⚙ settings panel and stored in <code>localStorage</code>.</li>
+        <li><strong>Guide page</strong> — step-by-step instructions for getting your Spotify data and setting up playlist export.</li>
+        <li><strong>Embedded script download</strong> — the upload modal includes an expandable section to copy or download <code>generate.py</code> directly.</li>
+      </ul>
+    </div>
+    <div class="change-group">
+      <div class="change-group-title">Fixed</div>
+      <ul class="change-list">
+        <li><strong>Spotify 403 on playlist export</strong> — updated to the new <code>/playlists/{id}/items</code> endpoint introduced in February 2026.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="release">
+    <div class="release-header">
+      <span class="release-version">Initial release</span>
+      <span class="release-date">2026-05-01</span>
+    </div>
+    <div class="change-group">
+      <div class="change-group-title">New</div>
+      <ul class="change-list">
+        <li><strong>Overview page</strong> — all-time stats, top tracks and artists, heatmap, and listening timeline.</li>
+        <li><strong>By Year page</strong> — year selector with first track, stats grid, top songs and artists, monthly hours chart, and Spotify export.</li>
+        <li><strong>Song Play Counts page</strong> — searchable, sortable table of every track with per-year filtering.</li>
+        <li><strong>Insights page</strong> — hourly and daily listening patterns, artist lifecycle chart, platform breakdown, session stats, and country map.</li>
+        <li><strong>Spotify playlist export</strong> — PKCE OAuth flow to create playlists directly in your Spotify account.</li>
+        <li><strong>generate.py</strong> — zero-dependency Python script that converts Spotify Extended Streaming History into the app's JSON format.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<script src="spotify.js"></script>
+</body>
+</html>

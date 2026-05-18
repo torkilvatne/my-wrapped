@@ -68,6 +68,16 @@
   .bar-fill { height: 4px; border-radius: 3px; background: var(--green); }
   .show-more-btn { display: block; width: 100%; margin-top: 12px; background: none; border: 1px solid #444; color: var(--muted); padding: 10px; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.15s; }
   .show-more-btn:hover { border-color: var(--green); color: var(--text); }
+
+  .month-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: -16px 0 24px; }
+  .month-btn {
+    background: var(--card); border: 2px solid transparent; color: var(--muted);
+    padding: 5px 12px; border-radius: 16px; cursor: pointer; font-size: 12px; font-weight: 700;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .month-btn:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+  .month-btn.active { background: var(--green); color: #000; border-color: var(--green); }
+  .month-btn:disabled { opacity: 0.3; cursor: default; }
 </style>
 </head>
 <body>
@@ -79,6 +89,7 @@
   <a href="songs.html">Song Counts</a>
   <a href="stats.html">Insights</a>
   <a href="export.html">Guide</a>
+  <a href="changelog.html" style="margin-left:auto">Changelog</a>
 </nav>
 
 <div class="hero">
@@ -89,6 +100,7 @@
 
 <div class="container">
   <div class="year-nav" id="year-nav"></div>
+  <div class="month-nav" id="month-nav"></div>
 
   <div id="first-song-section"></div>
   <div class="stats-grid" id="year-stats"></div>
@@ -96,7 +108,7 @@
   <div class="two-col">
     <div>
       <div class="chart-wrap">
-        <h3>Top Songs</h3>
+        <h3 id="top-songs-heading">Top Songs</h3>
         <ul class="list" id="top-songs"></ul>
         <button class="show-more-btn" id="songs-btn" style="display:none"></button>
         <button class="export-btn" onclick="exportTopSongs()">Export to Spotify</button>
@@ -115,6 +127,7 @@
     <h3>Listening Hours by Month</h3>
     <canvas id="monthChart"></canvas>
   </div>
+
 </div>
 
 <script>
@@ -122,20 +135,61 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 let monthChart   = null;
 let _currentYear = null;
 let _currentSongs = [];
-let _songLimit   = 15;
-
-function exportTopSongs() {
-  spOpenExportModal(_currentSongs.slice(0, _songLimit), `Top Songs ${_currentYear}`);
-}
+let _currentYs   = null;
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function fmtNum(n) { return Number(n).toLocaleString(); }
 
+function exportTopSongs() {
+  spOpenExportModal(_currentSongs.slice(0, 50), document.getElementById('top-songs-heading').textContent + ' ' + _currentYear);
+}
+
+function songItemHtml(s, i, maxP) {
+  return `<li>
+    <span class="rank ${i < 3 ? 'top3' : ''}">${i + 1}</span>
+    <div class="info">
+      <div class="name">${escHtml(s.track)}</div>
+      <div class="sub">${escHtml(s.artist)}</div>
+      <div class="bar-inline"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(100 * s.plays / maxP)}%"></div></div></div>
+    </div>
+    <span class="pill">${s.plays}×</span>
+  </li>`;
+}
+
+function renderTopSongsSection(songs, heading, allowShowMore) {
+  _currentSongs = songs;
+  document.getElementById('top-songs-heading').textContent = heading;
+  const maxP = songs[0]?.plays || 1;
+  const limit = allowShowMore ? 15 : songs.length;
+  document.getElementById('top-songs').innerHTML = songs.slice(0, limit).map((s, i) => songItemHtml(s, i, maxP)).join('');
+  const btn = document.getElementById('songs-btn');
+  if (allowShowMore && songs.length > 15) {
+    btn.style.display = '';
+    btn.textContent = `Show ${Math.min(songs.length, 50) - 15} more`;
+    btn.onclick = () => {
+      const expanded = btn.textContent.startsWith('Show less');
+      const newLimit = expanded ? 15 : 50;
+      document.getElementById('top-songs').innerHTML = songs.slice(0, newLimit).map((s, i) => songItemHtml(s, i, maxP)).join('');
+      btn.textContent = expanded ? `Show ${Math.min(songs.length, 50) - 15} more` : 'Show less';
+    };
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function selectAllYear() {
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.toggle('active', b.dataset.month === 'all'));
+  renderTopSongsSection(_currentYs.top_songs, 'Top Songs', true);
+}
+
+function selectMonth(m, songs) {
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.toggle('active', b.dataset.month === String(m)));
+  renderTopSongsSection(songs, `Top Songs — ${MONTHS[m - 1]}`, false);
+}
+
 function renderList(listId, btnId, items, limit, renderItem) {
-  if (listId === 'top-songs') { _currentSongs = items; _songLimit = limit; }
   document.getElementById(listId).innerHTML = items.slice(0, limit).map(renderItem).join('');
   const btn = document.getElementById(btnId);
   const expanded = limit === 50;
@@ -150,10 +204,10 @@ function renderList(listId, btnId, items, limit, renderItem) {
 
 function renderYear(year, data) {
   _currentYear = year;
-  _songLimit   = 15;
+  _currentYs   = data.year_stats[year];
   document.querySelectorAll('.year-btn').forEach(b => b.classList.toggle('active', b.dataset.year === year));
   document.getElementById('hero-year').textContent = year;
-  const ys = data.year_stats[year];
+  const ys = _currentYs;
   if (!ys) return;
 
   // First song
@@ -169,30 +223,40 @@ function renderYear(year, data) {
   // Stats
   const stats = [
     { val: fmtNum(ys.total_hours)+'h', lbl: 'Hours Listened' },
-    { val: fmtNum(ys.total_plays), lbl: 'Total Plays' },
-    { val: fmtNum(ys.unique_tracks), lbl: 'Unique Tracks' },
-    { val: fmtNum(ys.unique_artists), lbl: 'Unique Artists' },
-    { val: ys.skip_rate+'%', lbl: 'Skip Rate' },
-    { val: fmtNum(ys.skipped), lbl: 'Tracks Skipped' },
+    { val: fmtNum(ys.total_plays),     lbl: 'Total Plays' },
+    { val: fmtNum(ys.unique_tracks),   lbl: 'Unique Tracks' },
+    { val: fmtNum(ys.unique_artists),  lbl: 'Unique Artists' },
+    { val: ys.skip_rate+'%',           lbl: 'Skip Rate' },
+    { val: fmtNum(ys.skipped),         lbl: 'Tracks Skipped' },
   ];
   document.getElementById('year-stats').innerHTML = stats.map(s =>
     `<div class="stat-card"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`
   ).join('');
 
-  // Top songs
-  const maxPlays = ys.top_songs[0]?.plays || 1;
-  renderList(
-    'top-songs', 'songs-btn', ys.top_songs, 15,
-    (s, i) => `<li>
-      <span class="rank ${i < 3 ? 'top3' : ''}">${i+1}</span>
-      <div class="info">
-        <div class="name">${escHtml(s.track)}</div>
-        <div class="sub">${escHtml(s.artist)}</div>
-        <div class="bar-inline"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(100*s.plays/maxPlays)}%"></div></div></div>
-      </div>
-      <span class="pill">${s.plays}×</span>
-    </li>`
-  );
+  // Month picker
+  const monthlySongs = ys.monthly_songs || {};
+  const monthNav = document.getElementById('month-nav');
+  monthNav.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'month-btn active';
+  allBtn.dataset.month = 'all';
+  allBtn.textContent = 'All Year';
+  allBtn.onclick = selectAllYear;
+  monthNav.appendChild(allBtn);
+  MONTHS.forEach((name, idx) => {
+    const m = idx + 1;
+    const songs = monthlySongs[String(m)] || [];
+    const btn = document.createElement('button');
+    btn.className = 'month-btn';
+    btn.dataset.month = String(m);
+    btn.textContent = name;
+    btn.disabled = !songs.length;
+    btn.onclick = () => selectMonth(m, songs);
+    monthNav.appendChild(btn);
+  });
+
+  // Top songs (All Year default)
+  renderTopSongsSection(ys.top_songs, 'Top Songs', true);
 
   // Top artists
   const maxArtistPlays = ys.top_artists[0]?.plays || 1;
@@ -215,12 +279,7 @@ function renderYear(year, data) {
     type: 'bar',
     data: {
       labels: MONTHS,
-      datasets: [{
-        data: ys.monthly_hours,
-        backgroundColor: '#1DB954',
-        borderRadius: 6,
-        borderSkipped: false
-      }]
+      datasets: [{ data: ys.monthly_hours, backgroundColor: '#1DB954', borderRadius: 6, borderSkipped: false }]
     },
     options: {
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}h` } } },
@@ -248,7 +307,7 @@ async function main() {
     nav.appendChild(btn);
   });
 
-  const hash = window.location.hash.replace('#','') || years[years.length - 2] || years[years.length - 1];
+  const hash = window.location.hash.replace('#','') || '';
   const startYear = years.includes(hash) ? hash : years[years.length - 2] || years[years.length - 1];
   renderYear(startYear, data);
 }
