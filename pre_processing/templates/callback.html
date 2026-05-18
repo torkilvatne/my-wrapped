@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connecting to Spotify…</title>
+<script src="app.js"></script>
+<style>
+  body {
+    background: #121212; color: #fff; margin: 0;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 100vh; gap: 20px;
+  }
+  .spinner {
+    width: 44px; height: 44px;
+    border: 3px solid #333; border-top-color: #1DB954;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  p { color: #b3b3b3; font-size: 15px; margin: 0; }
+  .error { color: #f44336; }
+</style>
+</head>
+<body>
+<div class="spinner" id="spinner"></div>
+<p id="msg">Connecting to Spotify…</p>
+<script>
+(async function () {
+  const params        = new URLSearchParams(window.location.search);
+  const code          = params.get('code');
+  const error         = params.get('error');
+  const returnedState = params.get('state');
+  const verifier      = sessionStorage.getItem('sp_verifier');
+  const savedState    = sessionStorage.getItem('sp_state');
+  const rawReturn     = sessionStorage.getItem('sp_return') || 'index.html';
+
+  function safeReturn(raw) {
+    try {
+      const u = new URL(raw);
+      return u.origin === window.location.origin ? raw : 'index.html';
+    } catch { return 'index.html'; }
+  }
+  const returnTo = safeReturn(rawReturn);
+
+  function fail(text) {
+    document.getElementById('spinner').style.display = 'none';
+    const msg = document.getElementById('msg');
+    msg.textContent = text;
+    msg.className = 'error';
+    setTimeout(() => { window.location.href = returnTo; }, 3000);
+  }
+
+  if (error) { fail(`Spotify error: ${error}`); return; }
+  if (!code || !verifier) { fail('Missing auth parameters. Redirecting…'); return; }
+  if (!savedState || returnedState !== savedState) { fail('State mismatch — possible CSRF. Redirecting…'); return; }
+  sessionStorage.removeItem('sp_state');
+
+  history.replaceState(null, '', window.location.pathname);
+
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        grant_type:    'authorization_code',
+        code,
+        redirect_uri:  window.location.origin + '/callback.html',
+        client_id:     localStorage.getItem('sp_client_id'),
+        code_verifier: verifier,
+      }),
+    });
+    const data = await r.json();
+    if (!data.access_token) throw new Error(data.error_description || 'No token returned');
+    sessionStorage.setItem('sp_token',  data.access_token);
+    sessionStorage.setItem('sp_expiry', String(Date.now() + data.expires_in * 1000));
+    sessionStorage.removeItem('sp_verifier');
+  } catch (err) {
+    fail(`Auth failed: ${err.message}`);
+    return;
+  }
+
+  window.location.href = returnTo;
+}());
+</script>
+</body>
+</html>

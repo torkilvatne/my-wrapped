@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Wrapped — Song Play Counts</title>
+<script src="data/spotify_data.js" onerror=""></script>
+<script src="app.js"></script>
+<style>
+  :root {
+    --bg: #121212; --surface: #1e1e1e; --card: #282828;
+    --green: #1DB954; --text: #ffffff; --muted: #b3b3b3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Circular', 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; }
+
+  nav { background: #000; padding: 16px 32px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #333; }
+  .logo { font-size: 20px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--text); }
+
+  .hero { padding: 48px 32px 32px; background: linear-gradient(180deg, #2a1a3a 0%, var(--bg) 100%); }
+  .hero h1 { font-size: clamp(32px, 5vw, 56px); font-weight: 900; letter-spacing: -1.5px; }
+  .hero h1 span { color: var(--green); }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 32px 64px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; align-items: center; }
+  .year-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+  .year-btn {
+    background: var(--card); border: 2px solid transparent; color: var(--muted);
+    padding: 7px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 700;
+    transition: all 0.15s;
+  }
+  .year-btn:hover { color: var(--text); border-color: var(--muted); }
+  .year-btn.active { background: var(--green); color: #000; border-color: var(--green); }
+
+  .search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 400px; }
+  .search-wrap input {
+    width: 100%; background: var(--card); border: 1px solid #444; color: var(--text);
+    padding: 9px 16px 9px 40px; border-radius: 24px; font-size: 14px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: var(--green); }
+  .search-wrap::before { content: '⌕'; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; pointer-events: none; }
+
+  .count-info { color: var(--muted); font-size: 13px; padding: 0 4px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--card); padding: 12px 14px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--text); }
+  thead th.sorted { color: var(--green); }
+  thead th.sorted::after { content: ' ↓'; }
+  thead th.sorted.asc::after { content: ' ↑'; }
+  tbody tr { border-bottom: 1px solid #222; transition: background 0.1s; }
+  tbody tr:hover { background: #1a1a1a; }
+  td { padding: 10px 14px; font-size: 13px; }
+  td.rank { color: var(--muted); font-weight: 700; width: 44px; }
+  td.track-name { font-weight: 700; max-width: 280px; }
+  td.track-name span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td.artist { color: var(--muted); max-width: 200px; }
+  td.artist span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td.plays { font-weight: 800; color: var(--green); }
+  td.hours { color: var(--muted); }
+  .bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .bar-bg { width: 80px; background: #333; border-radius: 3px; height: 4px; flex-shrink: 0; }
+  .bar-fill { height: 4px; border-radius: 3px; background: var(--green); }
+
+  .table-wrap { background: var(--card); border-radius: 16px; overflow: hidden; }
+  .loading { text-align: center; padding: 64px; color: var(--muted); font-size: 16px; }
+
+  .show-more { display: block; width: 100%; background: none; border: 1px solid #444; color: var(--muted); padding: 14px; font-size: 14px; font-weight: 700; cursor: pointer; border-radius: 0 0 16px 16px; transition: all 0.15s; }
+  .show-more:hover { background: var(--card); color: var(--text); border-color: var(--green); }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Wrapped</span>
+  <a href="index.html">Overview</a>
+  <a href="yearly.html">By Year</a>
+  <a href="songs.html" class="active">Song Counts</a>
+  <a href="stats.html">Insights</a>
+  <a href="export.html">Guide</a>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <h1>Song Play Counts<br><span>by Year</span></h1>
+  </div>
+</div>
+
+<div class="container">
+  <div class="controls">
+    <div class="year-nav" id="year-nav"></div>
+    <div class="search-wrap">
+      <input type="text" id="search" placeholder="Search track or artist…" autocomplete="off">
+    </div>
+    <span class="count-info" id="count-info"></span>
+    <button class="export-btn" onclick="exportCurrentView()">Export to Spotify</button>
+  </div>
+
+  <div class="table-wrap" id="table-wrap">
+    <div class="loading">Loading…</div>
+  </div>
+</div>
+
+<script>
+let allData = null;
+let currentYear = null;
+
+function exportCurrentView() {
+  const songs = getFilteredSorted(currentYear).slice(0, 50);
+  const name  = currentFilter
+    ? `${currentYear} — ${currentFilter}`
+    : `Top Songs ${currentYear}`;
+  spOpenExportModal(songs, name);
+}
+let sortCol = 'plays';
+let sortAsc = false;
+let pageSize = 200;
+let currentFilter = '';
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderTable(songs) {
+  const maxPlays = songs.length ? songs[0].plays : 1;
+  const visible = songs.slice(0, pageSize);
+  const remaining = songs.length - visible.length;
+
+  const rows = visible.map((s, i) => `
+    <tr>
+      <td class="rank">${i + 1}</td>
+      <td class="track-name"><span title="${escHtml(s.track)}">${escHtml(s.track)}</span></td>
+      <td class="artist"><span title="${escHtml(s.artist)}">${escHtml(s.artist)}</span></td>
+      <td class="plays">${s.plays}</td>
+      <td class="hours">${s.hours}h</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(100*s.plays/maxPlays)}%"></div></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const isAsc = sortAsc;
+  const colClass = col => col === sortCol ? `sorted${isAsc ? ' asc' : ''}` : '';
+
+  document.getElementById('table-wrap').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th class="${colClass('track')}" data-col="track">Track</th>
+          <th class="${colClass('artist')}" data-col="artist">Artist</th>
+          <th class="${colClass('plays')}" data-col="plays">Plays</th>
+          <th class="${colClass('hours')}" data-col="hours">Time</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${remaining > 0 ? `<button class="show-more" id="show-more">Show ${Math.min(remaining, 200)} more of ${songs.length.toLocaleString()} total</button>` : ''}`;
+
+  document.querySelectorAll('thead th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) sortAsc = !sortAsc;
+      else { sortCol = col; sortAsc = col === 'track' || col === 'artist'; }
+      showYear(currentYear);
+    });
+  });
+
+  const showMoreBtn = document.getElementById('show-more');
+  if (showMoreBtn) showMoreBtn.onclick = () => { pageSize += 200; showYear(currentYear); };
+
+  document.getElementById('count-info').textContent =
+    currentFilter ? `${songs.length.toLocaleString()} matching` : `${songs.length.toLocaleString()} songs`;
+}
+
+function getFilteredSorted(year) {
+  let songs = allData.songs_per_year[year] || [];
+  const q = currentFilter.toLowerCase();
+  if (q) songs = songs.filter(s => s.track.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q));
+  songs = [...songs].sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+  return songs;
+}
+
+function showYear(year) {
+  currentYear = year;
+  document.querySelectorAll('.year-btn').forEach(b => b.classList.toggle('active', b.dataset.year === year));
+  renderTable(getFilteredSorted(year));
+}
+
+async function main() {
+  allData = await window.getSpotifyData();
+  if (!allData) return;
+  const years = allData.years;
+
+  const nav = document.getElementById('year-nav');
+  years.forEach(year => {
+    const btn = document.createElement('button');
+    btn.className = 'year-btn';
+    btn.dataset.year = year;
+    btn.textContent = year;
+    btn.onclick = () => { pageSize = 200; showYear(year); };
+    nav.appendChild(btn);
+  });
+
+  document.getElementById('search').addEventListener('input', e => {
+    currentFilter = e.target.value.trim();
+    pageSize = 200;
+    if (currentYear) showYear(currentYear);
+  });
+
+  const hash = window.location.hash.replace('#','') || '';
+  const startYear = years.includes(hash) ? hash : years[years.length - 2] || years[years.length - 1];
+  showYear(startYear);
+}
+
+main();
+</script>
+<script src="spotify.js"></script>
+</body>
+</html>

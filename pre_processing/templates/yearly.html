@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Wrapped — By Year</title>
+<script src="data/spotify_data.js" onerror=""></script>
+<script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #121212; --surface: #1e1e1e; --card: #282828;
+    --green: #1DB954; --text: #ffffff; --muted: #b3b3b3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Circular', 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; }
+
+  nav { background: #000; padding: 16px 32px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #333; }
+  .logo { font-size: 20px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--text); }
+
+  .hero { padding: 48px 32px 32px; background: linear-gradient(180deg, #1a2a3a 0%, var(--bg) 100%); }
+  .hero h1 { font-size: clamp(32px, 5vw, 56px); font-weight: 900; letter-spacing: -1.5px; }
+  .hero h1 span { color: var(--green); }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 32px 64px; }
+
+  .year-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0; }
+  .year-btn {
+    background: var(--card); border: 2px solid transparent; color: var(--muted);
+    padding: 8px 18px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 700;
+    transition: all 0.15s;
+  }
+  .year-btn:hover { color: var(--text); border-color: var(--muted); }
+  .year-btn.active { background: var(--green); color: #000; border-color: var(--green); }
+
+  .first-song-card { background: linear-gradient(135deg, #1e3a2a, #282828); border-radius: 16px; padding: 28px; margin-bottom: 28px; border: 1px solid #1DB95444; }
+  .first-song-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--green); margin-bottom: 8px; }
+  .first-song-card .track { font-size: 24px; font-weight: 800; }
+  .first-song-card .artist { font-size: 15px; color: var(--muted); margin-top: 4px; }
+  .first-song-card .time { font-size: 12px; color: #555; margin-top: 8px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 20px; }
+  .stat-card .val { font-size: 28px; font-weight: 800; color: var(--green); line-height: 1; }
+  .stat-card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+  .chart-wrap { background: var(--card); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+  .chart-wrap canvas { max-height: 320px; }
+
+  h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.3px; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+
+  .list { list-style: none; }
+  .list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #333; }
+  .list li:last-child { border: none; }
+  .rank { width: 24px; text-align: right; font-size: 13px; color: var(--muted); font-weight: 700; flex-shrink: 0; }
+  .rank.top3 { color: var(--green); }
+  .info { flex: 1; min-width: 0; }
+  .info .name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .info .sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill { background: #1a1a1a; border-radius: 20px; padding: 3px 8px; font-size: 11px; font-weight: 600; color: var(--green); flex-shrink: 0; }
+  .bar-inline { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .bar-bg { flex: 1; background: #333; border-radius: 3px; height: 4px; }
+  .bar-fill { height: 4px; border-radius: 3px; background: var(--green); }
+  .show-more-btn { display: block; width: 100%; margin-top: 12px; background: none; border: 1px solid #444; color: var(--muted); padding: 10px; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.15s; }
+  .show-more-btn:hover { border-color: var(--green); color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Wrapped</span>
+  <a href="index.html">Overview</a>
+  <a href="yearly.html" class="active">By Year</a>
+  <a href="songs.html">Song Counts</a>
+  <a href="stats.html">Insights</a>
+  <a href="export.html">Guide</a>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <h1>Your <span id="hero-year">2020</span><br>in Music</h1>
+  </div>
+</div>
+
+<div class="container">
+  <div class="year-nav" id="year-nav"></div>
+
+  <div id="first-song-section"></div>
+  <div class="stats-grid" id="year-stats"></div>
+
+  <div class="two-col">
+    <div>
+      <div class="chart-wrap">
+        <h3>Top Songs</h3>
+        <ul class="list" id="top-songs"></ul>
+        <button class="show-more-btn" id="songs-btn" style="display:none"></button>
+        <button class="export-btn" onclick="exportTopSongs()">Export to Spotify</button>
+      </div>
+    </div>
+    <div>
+      <div class="chart-wrap">
+        <h3>Top Artists</h3>
+        <ul class="list" id="top-artists"></ul>
+        <button class="show-more-btn" id="artists-btn" style="display:none"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <h3>Listening Hours by Month</h3>
+    <canvas id="monthChart"></canvas>
+  </div>
+</div>
+
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let monthChart   = null;
+let _currentYear = null;
+let _currentSongs = [];
+let _songLimit   = 15;
+
+function exportTopSongs() {
+  spOpenExportModal(_currentSongs.slice(0, _songLimit), `Top Songs ${_currentYear}`);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtNum(n) { return Number(n).toLocaleString(); }
+
+function renderList(listId, btnId, items, limit, renderItem) {
+  if (listId === 'top-songs') { _currentSongs = items; _songLimit = limit; }
+  document.getElementById(listId).innerHTML = items.slice(0, limit).map(renderItem).join('');
+  const btn = document.getElementById(btnId);
+  const expanded = limit === 50;
+  if (items.length > 15) {
+    btn.style.display = '';
+    btn.textContent = expanded ? 'Show less' : `Show ${Math.min(items.length, 50) - 15} more`;
+    btn.onclick = () => renderList(listId, btnId, items, expanded ? 15 : 50, renderItem);
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function renderYear(year, data) {
+  _currentYear = year;
+  _songLimit   = 15;
+  document.querySelectorAll('.year-btn').forEach(b => b.classList.toggle('active', b.dataset.year === year));
+  document.getElementById('hero-year').textContent = year;
+  const ys = data.year_stats[year];
+  if (!ys) return;
+
+  // First song
+  const fs = ys.first_song;
+  document.getElementById('first-song-section').innerHTML = fs ? `
+    <div class="first-song-card">
+      <div class="label">First track of ${year}</div>
+      <div class="track">${escHtml(fs.track)}</div>
+      <div class="artist">by ${escHtml(fs.artist)}</div>
+      <div class="time">${fs.ts.replace('T',' ').replace('Z',' UTC')}</div>
+    </div>` : '';
+
+  // Stats
+  const stats = [
+    { val: fmtNum(ys.total_hours)+'h', lbl: 'Hours Listened' },
+    { val: fmtNum(ys.total_plays), lbl: 'Total Plays' },
+    { val: fmtNum(ys.unique_tracks), lbl: 'Unique Tracks' },
+    { val: fmtNum(ys.unique_artists), lbl: 'Unique Artists' },
+    { val: ys.skip_rate+'%', lbl: 'Skip Rate' },
+    { val: fmtNum(ys.skipped), lbl: 'Tracks Skipped' },
+  ];
+  document.getElementById('year-stats').innerHTML = stats.map(s =>
+    `<div class="stat-card"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`
+  ).join('');
+
+  // Top songs
+  const maxPlays = ys.top_songs[0]?.plays || 1;
+  renderList(
+    'top-songs', 'songs-btn', ys.top_songs, 15,
+    (s, i) => `<li>
+      <span class="rank ${i < 3 ? 'top3' : ''}">${i+1}</span>
+      <div class="info">
+        <div class="name">${escHtml(s.track)}</div>
+        <div class="sub">${escHtml(s.artist)}</div>
+        <div class="bar-inline"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(100*s.plays/maxPlays)}%"></div></div></div>
+      </div>
+      <span class="pill">${s.plays}×</span>
+    </li>`
+  );
+
+  // Top artists
+  const maxArtistPlays = ys.top_artists[0]?.plays || 1;
+  renderList(
+    'top-artists', 'artists-btn', ys.top_artists, 15,
+    (a, i) => `<li>
+      <span class="rank ${i < 3 ? 'top3' : ''}">${i+1}</span>
+      <div class="info">
+        <div class="name">${escHtml(a.artist)}</div>
+        <div class="sub">${a.hours}h · ${fmtNum(a.plays)} plays</div>
+        <div class="bar-inline"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(100*a.plays/maxArtistPlays)}%"></div></div></div>
+      </div>
+      <span class="pill">${a.plays}×</span>
+    </li>`
+  );
+
+  // Month chart
+  if (monthChart) monthChart.destroy();
+  monthChart = new Chart(document.getElementById('monthChart'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: [{
+        data: ys.monthly_hours,
+        backgroundColor: '#1DB954',
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}h` } } },
+      scales: {
+        x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3' } },
+        y: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v+'h' } }
+      },
+      responsive: true, maintainAspectRatio: true
+    }
+  });
+}
+
+async function main() {
+  const data = await window.getSpotifyData();
+  if (!data) return;
+  const years = data.years;
+
+  const nav = document.getElementById('year-nav');
+  years.forEach(year => {
+    const btn = document.createElement('button');
+    btn.className = 'year-btn';
+    btn.dataset.year = year;
+    btn.textContent = year;
+    btn.onclick = () => renderYear(year, data);
+    nav.appendChild(btn);
+  });
+
+  const hash = window.location.hash.replace('#','') || years[years.length - 2] || years[years.length - 1];
+  const startYear = years.includes(hash) ? hash : years[years.length - 2] || years[years.length - 1];
+  renderYear(startYear, data);
+}
+
+main();
+</script>
+<script src="spotify.js"></script>
+</body>
+</html>

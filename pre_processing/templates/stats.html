@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Wrapped — Insights</title>
+<script src="data/spotify_data.js" onerror=""></script>
+<script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #121212; --surface: #1e1e1e; --card: #282828;
+    --green: #1DB954; --text: #ffffff; --muted: #b3b3b3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Circular','Helvetica Neue',Arial,sans-serif; min-height: 100vh; }
+
+  nav { background: #000; padding: 16px 32px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #333; }
+  .logo { font-size: 20px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--text); }
+
+  .hero { padding: 48px 32px 32px; background: linear-gradient(180deg, #1a2840 0%, var(--bg) 100%); }
+  .hero h1 { font-size: clamp(32px,5vw,56px); font-weight: 900; letter-spacing: -1.5px; }
+  .hero h1 span { color: var(--green); }
+  .hero p { color: var(--muted); margin-top: 10px; font-size: 14px; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 32px 64px; }
+
+  h2 { font-size: 22px; font-weight: 800; margin: 48px 0 20px; letter-spacing: -0.5px; }
+  h2 .sub { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+  h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 16px; }
+
+  .chart-wrap { background: var(--card); border-radius: 16px; padding: 28px; margin-bottom: 24px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 20px; }
+  .stat-card .val { font-size: 28px; font-weight: 800; color: var(--green); line-height: 1; }
+  .stat-card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+
+  /* Day of week artist callout */
+  .day-callout { background: var(--surface); border-radius: 12px; padding: 16px 20px; margin-top: 16px; min-height: 80px; }
+  .day-callout .day-name { font-size: 13px; font-weight: 800; color: var(--green); margin-bottom: 8px; }
+  .day-callout .artist-list { font-size: 13px; color: var(--muted); line-height: 1.8; }
+
+  /* Artist lifecycle */
+  .lifecycle-axis { position: relative; display: flex; padding-left: 148px; padding-right: 68px; margin-bottom: 6px; height: 20px; }
+  .lifecycle-tick { position: absolute; font-size: 10px; color: var(--muted); transform: translateX(-50%); }
+  .lifecycle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .lifecycle-name { width: 140px; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; text-align: right; color: var(--muted); }
+  .lifecycle-track { flex: 1; position: relative; height: 16px; background: #2a2a2a; border-radius: 8px; overflow: hidden; }
+  .lifecycle-bar { position: absolute; height: 100%; background: rgba(29,185,84,0.4); border-radius: 8px; top: 0; min-width: 4px; }
+  .lifecycle-peak { position: absolute; width: 3px; height: 100%; background: var(--green); top: 0; border-radius: 2px; }
+  .lifecycle-plays { width: 56px; font-size: 11px; color: var(--muted); flex-shrink: 0; text-align: right; }
+
+  /* Country flag */
+  .country-flag { font-size: 16px; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Wrapped</span>
+  <a href="index.html">Overview</a>
+  <a href="yearly.html">By Year</a>
+  <a href="songs.html">Song Counts</a>
+  <a href="stats.html" class="active">Insights</a>
+  <a href="export.html">Guide</a>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <h1>Listening <span>Insights</span></h1>
+    <p>Hour-by-hour patterns · Sessions · Discovery · Countries · Artist lifetimes</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Hour of day + Skip rate by hour -->
+  <h2>When You Listen <span class="sub">hours played · UTC</span></h2>
+  <div class="two-col">
+    <div class="chart-wrap">
+      <h3>Listening Hours by Hour of Day</h3>
+      <canvas id="hourChart"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <h3>Skip Rate by Hour of Day</h3>
+      <canvas id="skipHourChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Day of week -->
+  <h2>Day of Week</h2>
+  <div class="two-col">
+    <div class="chart-wrap">
+      <h3>Hours Listened</h3>
+      <canvas id="dayChart"></canvas>
+    </div>
+    <div>
+      <div class="chart-wrap" style="margin-bottom:16px">
+        <h3>Top Artists — click a bar to explore</h3>
+        <div class="day-callout" id="dayCallout">
+          <div class="day-name">Click a day in the chart →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discovery -->
+  <h2>How You Discover Music</h2>
+  <div class="two-col">
+    <div class="chart-wrap" style="display:flex;flex-direction:column;justify-content:center;">
+      <h3>Overall Breakdown</h3>
+      <canvas id="discoveryDonut" style="max-height:280px"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <h3>By Year</h3>
+      <canvas id="discoveryYear"></canvas>
+    </div>
+  </div>
+
+  <!-- Skip by platform -->
+  <h2>Skip Rate by Platform</h2>
+  <div class="chart-wrap">
+    <canvas id="skipPlatformChart" style="max-height:280px"></canvas>
+  </div>
+
+  <!-- Sessions -->
+  <h2>Listening Sessions <span class="sub">30-min gap = new session</span></h2>
+  <div class="stats-grid" id="sessionStats"></div>
+  <div class="two-col">
+    <div class="chart-wrap">
+      <h3>Sessions per Year</h3>
+      <canvas id="sessionsYearChart"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <h3>Average Session Length (minutes)</h3>
+      <canvas id="sessionsLenChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Countries -->
+  <h2>Where You've Listened</h2>
+  <div class="chart-wrap">
+    <canvas id="countriesChart" style="max-height:380px"></canvas>
+  </div>
+
+  <!-- Artist lifetimes -->
+  <h2>Artist Lifetimes <span class="sub">top 25 · bar = active period · bright line = peak month</span></h2>
+  <div class="chart-wrap">
+    <div class="lifecycle-axis" id="lifecycleAxis"></div>
+    <div id="lifecycle"></div>
+  </div>
+
+</div>
+
+<script>
+const GREEN  = '#1DB954';
+const COLORS = ['#1DB954','#2196F3','#FF9800','#9C27B0','#F44336','#607D8B','#00BCD4'];
+const COUNTRY_NAMES = {
+  NO:'Norway',US:'United States',GB:'United Kingdom',BR:'Brazil',DE:'Germany',
+  FR:'France',SE:'Sweden',DK:'Denmark',NL:'Netherlands',ES:'Spain',IT:'Italy',
+  AU:'Australia',CA:'Canada',JP:'Japan',MX:'Mexico',IN:'India',PT:'Portugal',
+  FI:'Finland',PL:'Poland',CH:'Switzerland',AT:'Austria',BE:'Belgium',
+  NZ:'New Zealand',IE:'Ireland',ZA:'South Africa',AR:'Argentina',CL:'Chile',
+  CO:'Colombia',TR:'Turkey',GR:'Greece',RO:'Romania',HU:'Hungary',CZ:'Czech Republic',
+  UA:'Ukraine',IL:'Israel',AE:'UAE',SA:'Saudi Arabia',SG:'Singapore',TH:'Thailand',
+  IS:'Iceland',EE:'Estonia',LV:'Latvia',LT:'Lithuania',RS:'Serbia',HR:'Croatia',
+  CY:'Cyprus',LU:'Luxembourg',SK:'Slovakia',SI:'Slovenia',KR:'South Korea',
+};
+
+function countryName(code) { return COUNTRY_NAMES[code] || code; }
+function countryFlag(code) {
+  return [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
+}
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtNum(n) { return Number(n).toLocaleString(); }
+
+function monthIdx(ym) {
+  const [y, m] = ym.split('-');
+  return parseInt(y) * 12 + parseInt(m);
+}
+
+function chartDefaults() {
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3' } },
+      y: { grid: { color: '#333' }, ticks: { color: '#b3b3b3' } },
+    },
+  };
+}
+
+async function main() {
+  const data = await window.getSpotifyData();
+  if (!data) return;
+  const ins  = data.insights;
+
+  // ── Hour of day ──────────────────────────────────────────────────────────
+  const hourLabels = ins.hourly.map(h => `${String(h.hour).padStart(2,'0')}:00`);
+
+  new Chart(document.getElementById('hourChart'), {
+    type: 'bar',
+    data: {
+      labels: hourLabels,
+      datasets: [{
+        data: ins.hourly.map(h => h.hours),
+        backgroundColor: ins.hourly.map(h => {
+          const hr = h.hour;
+          if (hr >= 6  && hr < 12) return 'rgba(29,185,84,0.85)';
+          if (hr >= 12 && hr < 18) return 'rgba(29,185,84,0.65)';
+          if (hr >= 18 && hr < 23) return 'rgba(100,180,130,0.7)';
+          return 'rgba(80,100,200,0.6)';
+        }),
+        borderRadius: 4, borderSkipped: false,
+      }],
+    },
+    options: {
+      ...chartDefaults(),
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}h` } } },
+      scales: {
+        x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+        y: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + 'h' } },
+      },
+    },
+  });
+
+  new Chart(document.getElementById('skipHourChart'), {
+    type: 'bar',
+    data: {
+      labels: hourLabels,
+      datasets: [{
+        data: ins.hourly.map(h => h.skip_rate),
+        backgroundColor: ins.hourly.map(h => {
+          const r = h.skip_rate;
+          if (r > 50) return 'rgba(244,67,54,0.85)';
+          if (r > 30) return 'rgba(255,152,0,0.85)';
+          return 'rgba(29,185,84,0.7)';
+        }),
+        borderRadius: 4, borderSkipped: false,
+      }],
+    },
+    options: {
+      ...chartDefaults(),
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}%` } } },
+      scales: {
+        x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+        y: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + '%' }, max: 100 },
+      },
+    },
+  });
+
+  // ── Day of week ───────────────────────────────────────────────────────────
+  const dayData = ins.daily;
+  let selectedDay = null;
+
+  const dayChart = new Chart(document.getElementById('dayChart'), {
+    type: 'bar',
+    data: {
+      labels: dayData.map(d => d.name.slice(0, 3)),
+      datasets: [{
+        data: dayData.map(d => d.hours),
+        backgroundColor: dayData.map(() => 'rgba(29,185,84,0.7)'),
+        borderRadius: 6, borderSkipped: false,
+      }],
+    },
+    options: {
+      ...chartDefaults(),
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}h` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#b3b3b3' } },
+        y: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + 'h' } },
+      },
+      onClick(_, elements) {
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        selectedDay = idx;
+        dayChart.data.datasets[0].backgroundColor = dayData.map((_, i) =>
+          i === idx ? GREEN : 'rgba(29,185,84,0.4)'
+        );
+        dayChart.update();
+        const d = dayData[idx];
+        document.getElementById('dayCallout').innerHTML = `
+          <div class="day-name">${d.name} · ${fmtNum(d.hours)}h · ${fmtNum(d.plays)} plays</div>
+          <div class="artist-list">${d.top_artists.map((a, i) => `${i+1}. ${escHtml(a)}`).join('<br>')}</div>`;
+      },
+    },
+  });
+
+  // ── Discovery ─────────────────────────────────────────────────────────────
+  const totals  = ins.reason_start.totals;
+  const donutLabels = Object.keys(totals);
+  const donutData   = Object.values(totals);
+
+  new Chart(document.getElementById('discoveryDonut'), {
+    type: 'doughnut',
+    data: {
+      labels: donutLabels,
+      datasets: [{ data: donutData, backgroundColor: COLORS, borderWidth: 2, borderColor: '#282828' }],
+    },
+    options: {
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: '#b3b3b3', font: { size: 12 }, padding: 12 } },
+        tooltip: { callbacks: { label: c => ` ${fmtNum(c.raw)} plays` } },
+      },
+      cutout: '60%',
+    },
+  });
+
+  const byYear  = ins.reason_start.by_year;
+  const yYears  = Object.keys(byYear);
+  const groups  = ['Play button','Autoplay','Skipped forward','Went back','Remote','Other'];
+
+  new Chart(document.getElementById('discoveryYear'), {
+    type: 'bar',
+    data: {
+      labels: yYears,
+      datasets: groups.map((g, i) => ({
+        label: g,
+        data: yYears.map(y => {
+          const yd    = byYear[y] || {};
+          const total = Object.values(yd).reduce((a, b) => a + b, 0);
+          return total ? Math.round((yd[g] || 0) / total * 100) : 0;
+        }),
+        backgroundColor: COLORS[i],
+        borderWidth: 0, borderRadius: 2, stack: 'disc',
+      })),
+    },
+    options: {
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: '#b3b3b3', font: { size: 11 }, padding: 10 } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.raw}%` } },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: '#b3b3b3' } },
+        y: { stacked: true, grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + '%' }, max: 100 },
+      },
+      responsive: true, maintainAspectRatio: true,
+    },
+  });
+
+  // ── Skip by platform ──────────────────────────────────────────────────────
+  const plat = ins.skip_by_platform.filter(p => p.plays > 50);
+
+  new Chart(document.getElementById('skipPlatformChart'), {
+    type: 'bar',
+    data: {
+      labels: plat.map(p => `${p.platform} (${fmtNum(p.plays)} plays)`),
+      datasets: [{
+        label: 'Skip rate %',
+        data: plat.map(p => p.skip_rate),
+        backgroundColor: plat.map(p => p.skip_rate > 30 ? 'rgba(244,67,54,0.8)' : GREEN),
+        borderRadius: 4, borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}% skip rate` } } },
+      scales: {
+        x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + '%' }, max: 100 },
+        y: { grid: { display: false }, ticks: { color: '#ffffff', font: { size: 13 } } },
+      },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+  document.getElementById('skipPlatformChart').parentElement.style.minHeight = `${Math.max(200, plat.length * 52)}px`;
+
+  // ── Sessions ──────────────────────────────────────────────────────────────
+  const sess = ins.sessions;
+  const sessionCards = [
+    { val: fmtNum(sess.total),       lbl: 'Total Sessions' },
+    { val: sess.avg_minutes + ' min',lbl: 'Avg Session Length' },
+    { val: sess.avg_plays,           lbl: 'Avg Tracks / Session' },
+    sess.longest ? { val: sess.longest.minutes + ' min', lbl: `Longest Session (${sess.longest.date})` } : null,
+    sess.longest ? { val: sess.longest.plays + ' tracks',lbl: 'Tracks in Longest Session' } : null,
+  ].filter(Boolean);
+
+  document.getElementById('sessionStats').innerHTML = sessionCards.map(c =>
+    `<div class="stat-card"><div class="val">${c.val}</div><div class="lbl">${c.lbl}</div></div>`
+  ).join('');
+
+  const sessYears = Object.keys(sess.per_year);
+
+  new Chart(document.getElementById('sessionsYearChart'), {
+    type: 'bar',
+    data: {
+      labels: sessYears,
+      datasets: [{ data: sessYears.map(y => sess.per_year[y].count), backgroundColor: GREEN, borderRadius: 4, borderSkipped: false }],
+    },
+    options: {
+      ...chartDefaults(),
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmtNum(c.raw)} sessions` } } },
+    },
+  });
+
+  new Chart(document.getElementById('sessionsLenChart'), {
+    type: 'bar',
+    data: {
+      labels: sessYears,
+      datasets: [{ data: sessYears.map(y => sess.per_year[y].avg_minutes), backgroundColor: 'rgba(29,185,84,0.6)', borderRadius: 4, borderSkipped: false }],
+    },
+    options: {
+      ...chartDefaults(),
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw} min` } } },
+      scales: {
+        x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3' } },
+        y: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + ' min' } },
+      },
+    },
+  });
+
+  // ── Countries ─────────────────────────────────────────────────────────────
+  const countries = ins.countries.slice(0, 15);
+
+  new Chart(document.getElementById('countriesChart'), {
+    type: 'bar',
+    data: {
+      labels: countries.map(c => `${countryFlag(c.code)} ${countryName(c.code)}`),
+      datasets: [{ data: countries.map(c => c.hours), backgroundColor: GREEN, borderRadius: 4, borderSkipped: false }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmtNum(c.raw)}h` } } },
+      scales: {
+        x: { grid: { color: '#333' }, ticks: { color: '#b3b3b3', callback: v => v + 'h' } },
+        y: { grid: { display: false }, ticks: { color: '#ffffff', font: { size: 13 } } },
+      },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+  document.getElementById('countriesChart').parentElement.style.minHeight = `${Math.max(200, countries.length * 42)}px`;
+
+  // ── Artist Lifecycle ──────────────────────────────────────────────────────
+  const lifecycle = ins.artist_lifecycle;
+  if (!lifecycle.length) return;
+
+  const allMonths = lifecycle.flatMap(a => [monthIdx(a.first), monthIdx(a.last)]);
+  const minM = Math.min(...allMonths);
+  const maxM = Math.max(...allMonths);
+  const span = maxM - minM + 1;
+
+  function pct(ym) { return ((monthIdx(ym) - minM) / span * 100).toFixed(2); }
+
+  // Year axis
+  let axisHtml = '';
+  for (let m = minM; m <= maxM; m++) {
+    if (m % 12 === 1) {
+      const year = Math.floor(m / 12);
+      const p    = ((m - minM) / span * 100).toFixed(2);
+      axisHtml  += `<div class="lifecycle-tick" style="left:${p}%">${year}</div>`;
+    }
+  }
+  document.getElementById('lifecycleAxis').innerHTML = axisHtml;
+
+  let html = '';
+  lifecycle.forEach(artist => {
+    const startP = parseFloat(pct(artist.first));
+    const endP   = parseFloat(pct(artist.last));
+    const widthP = Math.max(0.3, endP - startP).toFixed(2);
+    const innerSpan = monthIdx(artist.last) - monthIdx(artist.first);
+    const peakP  = innerSpan > 0
+      ? ((monthIdx(artist.peak) - monthIdx(artist.first)) / innerSpan * 100).toFixed(2)
+      : '50';
+
+    html += `
+      <div class="lifecycle-row" title="${escHtml(artist.artist)} · ${artist.first} → ${artist.last} · peak: ${artist.peak} (${artist.peak_plays} plays)">
+        <div class="lifecycle-name">${escHtml(artist.artist)}</div>
+        <div class="lifecycle-track">
+          <div class="lifecycle-bar" style="left:${startP}%;width:${widthP}%">
+            <div class="lifecycle-peak" style="left:${peakP}%"></div>
+          </div>
+        </div>
+        <div class="lifecycle-plays">${fmtNum(artist.total_plays)}</div>
+      </div>`;
+  });
+  document.getElementById('lifecycle').innerHTML = html;
+}
+
+main();
+</script>
+<script src="spotify.js"></script>
+</body>
+</html>
