@@ -283,7 +283,7 @@ def process(folder, output_dir, client_id=""):
             "monthly_songs": {
                 str(m): [
                     {"track": k[0], "artist": k[1], "plays": v}
-                    for k, v in sorted(monthly_song_counts[m].items(), key=lambda x: -x[1])[:10]
+                    for k, v in sorted(monthly_song_counts[m].items(), key=lambda x: -x[1])[:30]
                 ]
                 for m in range(1, 13) if monthly_song_counts[m]
             },
